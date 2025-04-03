@@ -29,8 +29,21 @@
     <ClInclude Include="common.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\towards-online-video-inpainting\st_360_reshape_windows.engine" />
+    <None Include="..\..\st_360_reshape_stage1_epoch15_win.engine" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="inpaint_manager.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="C:\Users\Christian\Downloads\inpaint_manager.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

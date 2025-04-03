@@ -145,13 +145,19 @@
   <ItemGroup>
     <ClInclude Include="common.hpp" />
     <ClInclude Include="inpaint_engine.hpp" />
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\towards-online-video-inpainting\st_360_reshape_windows.engine">
+    <None Include="..\..\st_360_reshape_stage1_epoch15_win.engine">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
-      <FileType>Document</FileType>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="inpaint_manager.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="C:\Users\Christian\Downloads\inpaint_manager.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
