@@ -148,16 +148,16 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\st_360_reshape_stage1_epoch15_win.engine">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="inpaint_manager.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="C:\Users\Christian\Downloads\inpaint_manager.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\st_360_reshape_stage2_epoch2.engine">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

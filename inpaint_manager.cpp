@@ -16,7 +16,7 @@ const wchar_t* EVENT_INPUT_READY = L"InputReadyEvent";
 const wchar_t* EVENT_OUTPUT_READY = L"OutputReadyEvent";
 
 int main() {
-    inpaintingModel = new InpaintingModel("st_360_reshape_stage1_epoch15_win.engine");
+    inpaintingModel = new InpaintingModel("st_360_reshape_stage2_epoch2.engine");
     // Create or open the shared memory region.
     HANDLE hMapFile = CreateFileMappingW(
         INVALID_HANDLE_VALUE,    // Use the system paging file.

@@ -34,9 +34,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\st_360_reshape_stage1_epoch15_win.engine" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="inpaint_manager.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
@@ -45,5 +42,8 @@
     <Image Include="C:\Users\Christian\Downloads\inpaint_manager.ico">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\st_360_reshape_stage2_epoch2.engine" />
   </ItemGroup>
 </Project>
