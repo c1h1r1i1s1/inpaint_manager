@@ -1,3 +1,5 @@
+// This program interfaces with the inpainting model directly,
+// and provices a set of functions for interacting with the model
 #include "inpaint_engine.hpp"
 #include "common.hpp"
 #include <fstream>

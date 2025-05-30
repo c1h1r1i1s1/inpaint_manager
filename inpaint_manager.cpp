@@ -1,3 +1,5 @@
+// This is the main program which sends and receives data from the main application
+// It manages the inpainting model at a high level
 #include <windows.h>
 #include <iostream>
 #include <opencv2/opencv.hpp>
