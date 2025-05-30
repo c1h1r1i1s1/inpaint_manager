@@ -15,6 +15,9 @@ public:
     // Enqueue inference using the asynchronous enqueueV3 method.
     bool inferEnqueueV3(void* inputData, void* outputData, cudaStream_t stream);
 
+    void* getOutputBuffer();
+    void* getInputBuffer();
+
     // Helper functions to compute tensor sizes.
     size_t getMemorySize() const;
     size_t getInputSize() const;
@@ -40,12 +43,20 @@ private:
 // its input/output buffers, and associated resource management.
 class InpaintingModel {
 public:
-    explicit InpaintingModel(const std::string& engineFilePath = "st_360_reshape_fp16_win.engine");
+    explicit InpaintingModel(const std::string& engineFilePath);
 
     ~InpaintingModel();
 
     // Runs inference on the provided image blob and outputs a predicted image.
-    bool runInference(const cv::Mat& imageBlob, cv::Mat& predictedImage360);
+    bool runInference(float* imageBlob);
+    bool getOutputs(cv::Mat& predictedImage360);
+
+    void* getOutputBuffer();
+    void* getInputBuffer();
+
+    cudaStream_t getStream() const { return m_stream; }
+
+    size_t getMemorySize();
 
 private:
 

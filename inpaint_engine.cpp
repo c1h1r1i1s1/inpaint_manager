@@ -1,3 +1,5 @@
+// This program interfaces with the inpainting model directly,
+// and provices a set of functions for interacting with the model
 #include "inpaint_engine.hpp"
 #include "common.hpp"
 #include <fstream>
@@ -69,27 +71,40 @@ InpaintingModel::~InpaintingModel() {
 }
 
 // Run inference on a given input image blob and extract the predicted image.
-bool InpaintingModel::runInference(const cv::Mat& imageBlob, cv::Mat& predictedImage360) {
+bool InpaintingModel::runInference(float* imageBlobData) {
     // Copy the input image blob to device memory.
-    cudaMemcpy(m_inputDeviceBuffer, imageBlob.data, m_totalInputSize, cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(m_inputDeviceBuffer, imageBlobData, m_totalInputSize, cudaMemcpyHostToDevice, m_stream);
 
     // Enqueue inference on the model.
     bool status = m_inference->inferEnqueueV3(m_inputDeviceBuffer, m_outputDeviceBuffer, m_stream);
     if (status) {
         return 1;
     }
+    
+    return 0;
+}
 
-    // Synchronize to ensure inference is complete.
-    cudaStreamSynchronize(m_stream);
+bool InpaintingModel::getOutputs(cv::Mat& predictedImage360) {
 
-    predictedImage360.create(kHeightImg, kWidthImg, CV_32FC3);
-    cudaError_t err = cudaMemcpy(predictedImage360.data, m_outputDeviceBuffer, kSizeImg, cudaMemcpyDeviceToHost);
+    cudaError_t err = cudaMemcpyAsync(predictedImage360.data, m_outputDeviceBuffer, kSizeImg, cudaMemcpyDeviceToHost, m_stream);
     if (err != cudaSuccess) {
         std::cerr << "cudaMemcpy failed: " << cudaGetErrorString(err) << std::endl;
         return 1;
     }
 
     return 0;
+}
+
+void* InpaintingModel::getOutputBuffer() {
+    return m_inference->getOutputBuffer();
+}
+
+void* InpaintingModel::getInputBuffer() {
+    return m_inference->getInputBuffer();
+}
+
+size_t InpaintingModel::getMemorySize() {
+    return m_inference->getMemorySize();
 }
 
 InpaintingEngine::InpaintingEngine(const std::string& engineFilePath)
@@ -192,10 +207,14 @@ bool InpaintingEngine::inferEnqueueV3(void* inputData, void* outputData, cudaStr
         std::cerr << "Issue with data enqueue" << std::endl;
         return 1;
     }
+}
 
-    size_t memSize = getMemorySize();
-    cudaMemcpyAsync(memoryBuffer, newMemoryBuffer, memSize, cudaMemcpyDeviceToDevice, stream);
-    return 0;
+void* InpaintingEngine::getOutputBuffer() {
+    return reinterpret_cast<char*>(newMemoryBuffer);
+}
+
+void* InpaintingEngine::getInputBuffer() {
+    return reinterpret_cast<char*>(memoryBuffer);
 }
 
 size_t InpaintingEngine::getMemorySize() const {
@@ -203,8 +222,6 @@ size_t InpaintingEngine::getMemorySize() const {
     size_t volume = 1;
     for (int i = 0; i < dims.nbDims; ++i)
         volume *= dims.d[i];
-    //int32_t bytesPerComponent = engine->getTensorBytesPerComponent("memory");
-    //bytesPerComponent = std::abs(bytesPerComponent);
     int bytesPerComponent = 4; // fp32
     return volume * bytesPerComponent;
 }
@@ -214,8 +231,6 @@ size_t InpaintingEngine::getInputSize() const {
     size_t volume = 1;
     for (int i = 0; i < dims.nbDims; ++i)
         volume *= dims.d[i];
-    //int32_t bytesPerComponent = engine->getTensorBytesPerComponent("masked_frames");
-    //bytesPerComponent = std::abs(bytesPerComponent);
     int bytesPerComponent = 4; // fp32
     return volume * bytesPerComponent;
 }
@@ -225,8 +240,6 @@ size_t InpaintingEngine::getOutputSize() const {
     size_t vol = 1;
     for (int i = 0; i < dims.nbDims; ++i)
         vol *= dims.d[i];
-    //int32_t bytesPerComponent = engine->getTensorBytesPerComponent("output");
-    //bytesPerComponent = std::abs(bytesPerComponent);
     int bytesPerComponent = 4; // fp32
     return vol * bytesPerComponent;
 }

@@ -1,14 +1,18 @@
+// This is the main program which sends and receives data from the main application
+// It manages the inpainting model at a high level
 #include <windows.h>
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <cstdint>
 #include "inpaint_engine.hpp"
 
-InpaintingModel* inpaintingModel;
+InpaintingModel* inpaintingModel_L;
+
+float* pinnedOutL = nullptr;
 
 // Define the shared memory size for an FP32 blob of shape (1, 3, 360, 640).
 // FP32 is 4 bytes per element.
-const size_t FP32_BLOB_SIZE = 1ull * 3 * 360 * 640 * sizeof(uint32_t);
+const size_t FP32_BLOB_SIZE = 3 * 360 * 640 * sizeof(float);
 
 // Use wide-string names for shared memory and events.
 const wchar_t* SHARED_MEMORY_NAME = L"InpaintingSharedMemory";
@@ -16,14 +20,16 @@ const wchar_t* EVENT_INPUT_READY = L"InputReadyEvent";
 const wchar_t* EVENT_OUTPUT_READY = L"OutputReadyEvent";
 
 int main() {
-    inpaintingModel = new InpaintingModel("st_360_reshape_stage2_epoch2.engine");
+    inpaintingModel_L = new InpaintingModel("st_360_reshape_stage2_epoch2.engine");
+
+    cudaStream_t streamL = inpaintingModel_L->getStream();
     // Create or open the shared memory region.
     HANDLE hMapFile = CreateFileMappingW(
         INVALID_HANDLE_VALUE,    // Use the system paging file.
         NULL,                    // Default security.
         PAGE_READWRITE,          // Read/write access.
         0,                       // Maximum object size (high-order DWORD).
-        (DWORD)FP32_BLOB_SIZE,   // Maximum object size (low-order DWORD).
+        (DWORD)FP32_BLOB_SIZE, // Maximum object size (low-order DWORD).
         SHARED_MEMORY_NAME       // Name of the mapping object.
     );
 
@@ -50,6 +56,19 @@ int main() {
         return 1;
     }
 
+    // Get pBuf address
+    auto* sharedBytes = static_cast<const uint8_t*>(pBuf);
+
+    // Allocate staging and output buffers
+    float* pinnedStaging = nullptr;
+    cudaHostAlloc(reinterpret_cast<void**>(&pinnedStaging),
+        FP32_BLOB_SIZE,
+        cudaHostAllocDefault);
+    auto* pinnedStagingAddr = reinterpret_cast<uint8_t*>(pinnedStaging);
+
+    cudaHostAlloc(&pinnedOutL, FP32_BLOB_SIZE, cudaHostAllocDefault);
+    cv::Mat outputBlobFP32_L(360, 640, CV_32FC3, pinnedOutL);
+
     std::wcout << L"Inpainting server process is running...\n";
 
     while (true) {
@@ -60,37 +79,57 @@ int main() {
             break;
         }
 
-        // Here we assume the shared memory now holds the raw FP32 blob data.
-        // Create a cv::Mat header that points directly to the shared memory.
-        // Since blobFromImage produces a blob in CHW format (1, 3, 360, 640), we can create a 1x(N) matrix and reshape it.
-        cv::Mat inputBlobFP32(1, 3 * 360 * 640, CV_32F, pBuf);
-        // Optionally, you can reshape it if needed:
-        // cv::Mat inputBlobFP32 = cv::Mat(1, 3 * 360 * 640, CV_32F, pBuf).reshape(1, {1, 3, 360, 640});
+        // Copy blob data from buffer into staging memory
+        memcpy(
+            pinnedStagingAddr + 0 * FP32_BLOB_SIZE,
+            sharedBytes,
+            FP32_BLOB_SIZE
+        );
+
+        // Wrap dat with Mat headers for reading
+        cv::Mat leftBlob(360, 640, CV_32FC3, pinnedStaging + 0 * FP32_BLOB_SIZE / sizeof(float));
 
         // Run the inpainting inference on the FP32 blob.
-        cv::Mat outputBlobFP32;
-        inpaintingModel->runInference(inputBlobFP32, outputBlobFP32);
+        inpaintingModel_L->runInference(pinnedStaging + 0 * FP32_BLOB_SIZE / sizeof(float));
+
+        cudaMemcpyAsync(
+            inpaintingModel_L->getInputBuffer(),
+            inpaintingModel_L->getOutputBuffer(),
+            inpaintingModel_L->getMemorySize(),
+            cudaMemcpyDeviceToDevice,
+            streamL
+        );
+
+        inpaintingModel_L->getOutputs(outputBlobFP32_L);
+
+        cudaStreamSynchronize(streamL);
 
         // Write the output blob back into shared memory.
         // Here we assume the output blob is the same size as the input.
-        if (outputBlobFP32.total() * outputBlobFP32.elemSize() != FP32_BLOB_SIZE) {
-            std::wcerr << L"Output blob size mismatch.\n";
-            std::cerr << outputBlobFP32.total() << std::endl;
-            std::cerr << outputBlobFP32.elemSize() << std::endl;
-            // You might choose to handle this error differently.
+        if (outputBlobFP32_L.total() * outputBlobFP32_L.elemSize() != FP32_BLOB_SIZE) {
+            std::wcerr << L"Output blob size mismatch L.\n";
+            std::cerr << outputBlobFP32_L.total() << std::endl;
+            std::cerr << outputBlobFP32_L.elemSize() << std::endl;
             return 1;
         }
-        memcpy(pBuf, outputBlobFP32.data, FP32_BLOB_SIZE);
+
+        auto* buf = reinterpret_cast<uint8_t*>(pBuf);
+        memcpy(buf,
+            outputBlobFP32_L.ptr<float>(),
+            FP32_BLOB_SIZE);
 
         // Signal that the output is ready.
         SetEvent(hOutputEvent);
     }
 
     // Cleanup
-    //delete inpaintingModel;
     CloseHandle(hInputEvent);
     CloseHandle(hOutputEvent);
     UnmapViewOfFile(pBuf);
     CloseHandle(hMapFile);
+    cudaFreeHost(pinnedStaging);
+    cudaFreeHost(pinnedOutL);
+
+    delete inpaintingModel_L;
     return 0;
 }
